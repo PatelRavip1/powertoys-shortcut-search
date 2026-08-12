@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "shortcut_search (Package)": {
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": true
+    },
+    "shortcut_search (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
