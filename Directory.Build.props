@@ -5,6 +5,7 @@
     <AnalysisMode>Recommended</AnalysisMode>
     <_SkipUpgradeNetAnalyzersNuGetWarning>true</_SkipUpgradeNetAnalyzersNuGetWarning>
     <NuGetAuditMode>direct</NuGetAuditMode>
+    <NoWarn>$(NoWarn);CA1707;APPX1707</NoWarn>
     <PlatformTarget>$(Platform)</PlatformTarget>
   </PropertyGroup>
 </Project>

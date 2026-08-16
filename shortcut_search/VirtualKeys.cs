@@ -7,7 +7,7 @@ namespace shortcut_search;
 // Resolves a manifest key token (a raw Virtual-Key int, as PowerToys' own
 // manifest uses, or a string name like "S", "<Enter>", "PrtScr", "F9") into
 // the actual Windows Virtual-Key code plus a display string.
-internal static class VirtualKeys
+internal static partial class VirtualKeys
 {
     public const ushort VK_SHIFT = 0x10;
     public const ushort VK_CONTROL = 0x11;
@@ -42,6 +42,21 @@ internal static class VirtualKeys
             ["prtscr"] = (0x2C, "PrtScr"),
             ["prtsc"] = (0x2C, "PrtScr"),
             ["printscreen"] = (0x2C, "PrtScr"),
+            ["capslock"] = (0x14, "Caps Lock"),
+            ["caps"] = (0x14, "Caps Lock"),
+            ["numlock"] = (0x90, "Num Lock"),
+            ["scrolllock"] = (0x91, "Scroll Lock"),
+            ["plus"] = (0xBB, "+"),
+            ["minus"] = (0xBD, "-"),
+            ["comma"] = (0xBC, ","),
+            ["period"] = (0xBE, "."),
+            ["dot"] = (0xBE, "."),
+            ["slash"] = (0xBF, "/"),
+            ["backslash"] = (0xDC, "\\"),
+            ["semicolon"] = (0xBA, ";"),
+            ["quote"] = (0xDE, "'"),
+            ["tilde"] = (0xC0, "`"),
+            ["backquote"] = (0xC0, "`"),
         };
 
     private static readonly Dictionary<ushort, string> VkNames = new()
@@ -88,7 +103,11 @@ internal static class VirtualKeys
         ['\\'] = 0xDC,
         [']'] = 0xDD,
         ['\''] = 0xDE,
+        ['+'] = 0xBB,
     };
+
+    [GeneratedRegex(@"^[Ff](\d{1,2})$")]
+    private static partial Regex FKeyRegex();
 
     /// <summary>
     /// Resolves a raw manifest key token. Returns null if it can't be sent
@@ -103,19 +122,32 @@ internal static class VirtualKeys
         if (s.Length == 0)
             return null;
 
-        if (int.TryParse(s, out var n))
-            return ResolveVk((ushort)n);
+        if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(s[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var hex))
+        {
+            return ResolveVk((ushort)hex);
+        }
 
-        if (s.Length > 2 && s.StartsWith("<") && s.EndsWith(">"))
+        if (int.TryParse(s, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n))
+        {
+            return ResolveVk((ushort)n);
+        }
+
+        if (s.Length > 2 && s.StartsWith('<') && s.EndsWith('>'))
+        {
             s = s[1..^1];
+        }
 
         if (Aliases.TryGetValue(s, out var alias))
+        {
             return alias;
+        }
 
-        var fMatch = Regex.Match(s, @"^[Ff](\d{1,2})$");
-        if (fMatch.Success && int.TryParse(fMatch.Groups[1].Value, out var fn) && fn is >= 1 and <= 24)
+        var fMatch = FKeyRegex().Match(s);
+        if (fMatch.Success && int.TryParse(fMatch.Groups[1].Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var fn) && fn is >= 1 and <= 24)
+        {
             return ((ushort)(0x70 + fn - 1), $"F{fn}");
-
+        }
         if (s.Length == 1)
         {
             var c = s[0];

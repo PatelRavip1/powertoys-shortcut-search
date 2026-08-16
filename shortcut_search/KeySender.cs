@@ -53,9 +53,29 @@ internal static class KeySender
         entry.Win && !entry.Ctrl && !entry.Alt && !entry.Shift
         && entry.Keys.Length == 1 && entry.Keys[0] == VK_L;
 
-    private static InjectedInputKeyboardInfo KeyEvent(ushort vk, bool down) => new()
+    private static bool IsExtendedKey(ushort vk) => vk switch
     {
-        VirtualKey = vk,
-        KeyOptions = down ? InjectedInputKeyOptions.None : InjectedInputKeyOptions.KeyUp,
+        0x21 or 0x22 or 0x23 or 0x24 or 0x25 or 0x26 or 0x27 or 0x28 or 0x2C or 0x2D or 0x2E or 0x5B or 0x5C or 0x5D or 0x6F or 0x90 => true,
+        _ => false,
     };
+
+    private static InjectedInputKeyboardInfo KeyEvent(ushort vk, bool down)
+    {
+        var options = InjectedInputKeyOptions.None;
+        if (!down)
+        {
+            options |= InjectedInputKeyOptions.KeyUp;
+        }
+
+        if (IsExtendedKey(vk))
+        {
+            options |= InjectedInputKeyOptions.ExtendedKey;
+        }
+
+        return new InjectedInputKeyboardInfo
+        {
+            VirtualKey = vk,
+            KeyOptions = options,
+        };
+    }
 }

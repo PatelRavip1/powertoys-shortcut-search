@@ -1,72 +1,45 @@
-# Shortcut Launcher — Command Palette extension
+# Shortcut Search — PowerToys Command Palette Extension
 
-Same idea as the Python popup, rebuilt as a proper PowerToys Command Palette
-extension: type in Command Palette, get a live-filtered list of shortcuts,
-press Enter to actually run one.
+A PowerToys Command Palette extension that provides live-filtered search across Windows, PowerToys, and application keyboard shortcuts with one-press execution.
 
-## What's different from the Python version
+## Features
 
-- No separate hotkey/popup — it lives inside Command Palette itself (`Win`
-  by default, or whatever you've bound it to).
-- Sending keys uses raw Windows `SendInput` with Virtual-Key codes directly
-  (no string key names needed — PowerToys' own manifest is already VK codes).
-- Default view = Windows + PowerToys shortcuts. Type `/excel` to browse an
-  app's shortcuts, `/excel copy` to filter within it. Same behavior as before.
+- **Integrated Experience:** Runs directly inside PowerToys Command Palette as an out-of-process COM extension.
+- **Fast Search & Ranking:** Instant prefix and fuzzy matching on shortcut names, apps, and key combinations.
+- **App-Specific Filtering:** Type `/` (e.g. `/excel` or `/excel copy`) to browse shortcuts for specific applications.
+- **Direct Key Injection:** Uses Windows Input Injection broker APIs with fallback to dedicated APIs (e.g. `LockWorkStation` for `Win+L`).
+- **Window Focus Handling:** Automatically restores and brings target application windows to the foreground before injecting keystrokes.
+- **Extended Manifest Discovery:** Automatically searches multiple standard PowerToys installation locations and custom WinGet shortcut manifests.
 
-## Setup
+## Architecture & Structure
 
-1. Install PowerToys, enable Command Palette, enable Developer Mode
-   (Settings → Privacy & security → For developers), and install Visual
-   Studio with the WinUI / Windows App SDK workload.
-2. In Command Palette, run **"Create a new extension"**. Give it a name,
-   e.g. `ShortcutLauncher`. This generates the real project — manifest, COM
-   server registration, `.csproj` — none of which I can safely hand-write
-   outside Visual Studio's tooling.
-3. Add the YAML parser package to the generated project:
+| Path | Purpose |
+|---|---|
+| `Pages/ShortcutsPage.cs` | Reactive `DynamicListPage` implementing search and ranking |
+| `RunShortcutCommand.cs` | `InvokableCommand` executing shortcuts and triggering window focus |
+| `KeySender.cs` | WinRT `InputInjector` keystroke simulator with extended-key support |
+| `WindowFocus.cs` | Process-to-window enumeration and foreground restoration |
+| `ShortcutManifestLoader.cs` | YAML deserializer for PowerToys Shortcut Guide manifests |
+| `VirtualKeys.cs` | Token-to-VK mapper with culture-invariant hex/numeric/alias support |
+| `ShortcutModels.cs` | Data models and enums |
+| `shortcut_searchCommandsProvider.cs` | Extension entry point registering top-level commands |
+| `shortcut_search.cs` | Root `IExtension` COM implementation |
+| `Program.cs` | COM server host lifecycle |
+| `Package.appxmanifest` | MSIX package manifest with Command Palette extension activation |
 
+## Build & Deploy
+
+1. **Build solution:**
+   ```powershell
+   dotnet build shortcut_search.sln -p:Platform=x64
    ```
-   dotnet add package YamlDotNet
-   ```
+2. **Deploy MSIX package:**
+   In Visual Studio, right click `shortcut_search` → **Deploy** (or press F5).
+3. **Reload in Command Palette:**
+   Open Command Palette (`Win` or configured hotkey), search for **Reload**, and select **Reload Command Palette extensions**.
 
-4. Copy these files into the generated project folder (next to the
-   `.csproj`, or in a subfolder — either works):
-   - `VirtualKeys.cs`
-   - `ShortcutModels.cs`
-   - `ShortcutManifestLoader.cs`
-   - `NativeMethods.cs`
-   - `KeySender.cs`
-   - `WindowFocus.cs`
-   - `RunShortcutCommand.cs`
+## Requirements
 
-5. **Namespace:** every file uses `namespace shortcut_search;` — change
-   this to match whatever namespace your generated project actually uses
-   (it'll be your `<ExtensionName>`).
-
-6. **Wire up the page:** don't add `ShortcutsPage.cs` as a new file — instead,
-   open your generated `Pages\<ExtensionName>Page.cs`, delete its contents,
-   and replace them with `ShortcutsPage.cs`'s contents, renaming the class
-   back to `<ExtensionName>Page`. The template already wires that class up
-   as your top-level command, so this avoids touching the CommandsProvider
-   file at all.
-
-7. In Visual Studio: **Build → Deploy `<ExtensionName>`** (not just Build —
-   deploying is what registers the package). Then in Command Palette, run
-   **Reload** (the one subtitled "Reload Command Palette Extension").
-
-## Honest caveats
-
-- I can't compile or run this here — no Windows, no Visual Studio, no
-  Command Palette. It's written directly against the documented API shapes
-  (`DynamicListPage`, `UpdateSearchText`, `ListItem`, `InvokableCommand`,
-  `CommandResult.Hide()`), but the extension SDK is new and still evolving,
-  so a property or method name may not match exactly what IntelliSense
-  shows you. If something doesn't compile, it's almost certainly a small
-  naming mismatch — check the matching page under
-  `Microsoft.CommandPalette.Extensions.Toolkit` in the
-  [API reference](https://learn.microsoft.com/en-us/windows/powertoys/command-palette/sdk-namespaces).
-- `RunShortcutCommand` focuses the target app by matching `WindowFilter`
-  against a running process name. If the app isn't open, nothing happens —
-  same limitation as the Python version.
-- First run: if the list comes up empty, your PowerToys install path
-  differs from what's hardcoded in `ShortcutManifestLoader.ManifestDirs` —
-  add your actual path there.
+- Windows 10 version 2004 (build 19041) or Windows 11
+- PowerToys with Command Palette enabled
+- .NET 10 SDK with Windows App SDK workload

@@ -13,7 +13,7 @@ public partial class shortcut_searchCommandsProvider : CommandProvider
 
     public shortcut_searchCommandsProvider()
     {
-        DisplayName = "shortcut search";
+        DisplayName = "Shortcut Search";
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         _commands = [
             new CommandItem(new ShortcutsPage()) { Title = DisplayName },
@@ -24,5 +24,4 @@ public partial class shortcut_searchCommandsProvider : CommandProvider
     {
         return _commands;
     }
-
 }
