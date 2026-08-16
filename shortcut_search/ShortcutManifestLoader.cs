@@ -25,6 +25,8 @@ internal sealed class ManifestSection
 internal sealed class ManifestProperty
 {
     public string? Name { get; set; }
+    public string? Description { get; set; }
+    public bool? Recommended { get; set; }
     public List<ManifestCombo>? Shortcut { get; set; }
 }
 
@@ -109,14 +111,18 @@ internal static class ShortcutManifestLoader
 
                 foreach (var section in data.Shortcuts)
                 {
+                    var sectionName = section.SectionName ?? string.Empty;
+
                     foreach (var prop in section.Properties ?? [])
                     {
                         var actionName = prop.Name ?? string.Empty;
+                        var description = prop.Description ?? string.Empty;
 
                         foreach (var combo in prop.Shortcut ?? [])
                         {
                             var keyDisplays = new List<string>();
                             var vkCodes = new List<ushort>();
+                            var normalizedKeys = new List<string>();
                             var ok = true;
 
                             foreach (var rawKey in combo.Keys ?? [])
@@ -129,16 +135,33 @@ internal static class ShortcutManifestLoader
                                 }
                                 vkCodes.Add(resolved.Value.Vk);
                                 keyDisplays.Add(resolved.Value.Display);
+                                normalizedKeys.Add(ShortcutSearchEngine.NormalizeKey(resolved.Value.Display));
                             }
 
                             if (!ok || vkCodes.Count == 0)
                                 continue;
 
                             var modParts = new List<string>();
-                            if (combo.Ctrl == true) modParts.Add("Ctrl");
-                            if (combo.Alt == true) modParts.Add("Alt");
-                            if (combo.Shift == true) modParts.Add("Shift");
-                            if (combo.Win == true) modParts.Add("Win");
+                            if (combo.Ctrl == true)
+                            {
+                                modParts.Add("Ctrl");
+                                normalizedKeys.Add("ctrl");
+                            }
+                            if (combo.Alt == true)
+                            {
+                                modParts.Add("Alt");
+                                normalizedKeys.Add("alt");
+                            }
+                            if (combo.Shift == true)
+                            {
+                                modParts.Add("Shift");
+                                normalizedKeys.Add("shift");
+                            }
+                            if (combo.Win == true)
+                            {
+                                modParts.Add("Win");
+                                normalizedKeys.Add("win");
+                            }
 
                             var display = string.Join("+", modParts.Concat(keyDisplays));
                             var dedupeKey = $"{appName}|{actionName}|{display}";
@@ -149,6 +172,8 @@ internal static class ShortcutManifestLoader
                             {
                                 App = appName,
                                 ActionName = actionName,
+                                Description = description,
+                                Section = sectionName,
                                 WindowFilter = windowFilter,
                                 Category = category,
                                 Ctrl = combo.Ctrl == true,
@@ -157,6 +182,7 @@ internal static class ShortcutManifestLoader
                                 Win = combo.Win == true,
                                 Keys = vkCodes.ToArray(),
                                 Display = display,
+                                NormalizedKeys = normalizedKeys.ToArray(),
                             });
                         }
                     }

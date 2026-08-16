@@ -16,6 +16,7 @@ internal sealed partial class ShortcutsPage : DynamicListPage
         Icon = new IconInfo("\uE765"); // keyboard glyph
         Title = "Shortcuts";
         Name = "Search";
+        PlaceholderText = "Search by action (copy, format), app (vscode, chrome), keys (ctrl+c, win+e), or type...";
 
         _all = ShortcutManifestLoader.LoadAll();
         _items = BuildItems(string.Empty);
@@ -31,62 +32,50 @@ internal sealed partial class ShortcutsPage : DynamicListPage
 
     private IListItem[] BuildItems(string raw)
     {
-        raw = (raw ?? string.Empty).Trim();
-        IEnumerable<ShortcutEntry> pool;
+        var matched = ShortcutSearchEngine.Search(_all, raw, 75);
 
-        if (raw.Length == 0)
-        {
-            // Default view: everything except per-app shortcuts.
-            pool = _all
-                .Where(s => s.Category is ShortcutCategory.Windows or ShortcutCategory.PowerToys)
-                .OrderBy(s => s.App, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(s => s.ActionName, StringComparer.OrdinalIgnoreCase);
-        }
-        else if (raw.StartsWith('/'))
-        {
-            // "/excel" -> all Excel shortcuts. "/excel copy" -> filtered further.
-            var rest = raw[1..];
-            var parts = rest.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            var appQuery = parts.Length > 0 ? parts[0].Trim() : string.Empty;
-            var searchQuery = parts.Length > 1 ? parts[1].Trim() : string.Empty;
-
-            var filtered = _all.Where(s => s.App.Contains(appQuery, StringComparison.OrdinalIgnoreCase));
-            if (searchQuery.Length > 0)
+        return matched
+            .Select(s =>
             {
-                filtered = filtered.Where(s => s.ActionName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
-            }
+                var categoryTag = s.Category switch
+                {
+                    ShortcutCategory.Windows => "Windows",
+                    ShortcutCategory.PowerToys => "PowerToys",
+                    _ => s.App,
+                };
 
-            pool = Rank(filtered, searchQuery.Length > 0 ? searchQuery : appQuery).Take(50);
-        }
-        else
-        {
-            var filtered = _all
-                .Where(s => s.Category is ShortcutCategory.Windows or ShortcutCategory.PowerToys)
-                .Where(s => s.ActionName.Contains(raw, StringComparison.OrdinalIgnoreCase) || s.App.Contains(raw, StringComparison.OrdinalIgnoreCase));
+                var scopeDescription = s.Category == ShortcutCategory.App
+                    ? (string.IsNullOrWhiteSpace(s.WindowFilter) ? "App window" : $"Target: `{s.WindowFilter}`")
+                    : "Global (system-wide shortcut)";
 
-            pool = Rank(filtered, raw).Take(50);
-        }
+                var detailsBody = $"### {s.App}\n\n" +
+                    $"**Shortcut:** `{s.Display}`\n\n" +
+                    (string.IsNullOrWhiteSpace(s.Section) ? string.Empty : $"**Section:** {s.Section}\n\n") +
+                    (string.IsNullOrWhiteSpace(s.Description) ? string.Empty : $"**Description:** {s.Description}\n\n") +
+                    $"**Scope:** {scopeDescription}";
 
-        return pool
-            .Select(s => (IListItem)new ListItem(new RunShortcutCommand(s))
-            {
-                Title = $"{s.App} \u2192 {s.ActionName}",
-                Subtitle = s.Display,
+                return (IListItem)new ListItem(new RunShortcutCommand(s))
+                {
+                    Title = $"{s.App} \u2192 {s.ActionName}",
+                    Subtitle = string.IsNullOrEmpty(s.Section) ? s.Display : $"{s.Display}  \u2022  {s.Section}",
+                    Tags = [new Tag(categoryTag)],
+                    Details = new Details
+                    {
+                        Title = s.ActionName,
+                        Body = detailsBody,
+                    },
+                    MoreCommands = [
+                        new CommandContextItem(new CopyTextCommand(s.Display))
+                        {
+                            Title = $"Copy Shortcut ({s.Display})",
+                        },
+                        new CommandContextItem(new CopyTextCommand(s.ActionName))
+                        {
+                            Title = "Copy Action Name",
+                        },
+                    ],
+                };
             })
             .ToArray();
-    }
-
-    private static IEnumerable<ShortcutEntry> Rank(IEnumerable<ShortcutEntry> items, string query)
-    {
-        return items
-            .OrderBy(s =>
-            {
-                if (string.Equals(s.ActionName, query, StringComparison.OrdinalIgnoreCase)) return 0;
-                if (s.ActionName.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 1;
-                if (s.App.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 2;
-                return 3;
-            })
-            .ThenBy(s => s.App, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(s => s.ActionName, StringComparer.OrdinalIgnoreCase);
     }
 }
