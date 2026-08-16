@@ -19,6 +19,12 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
     // Windows deliberately blocks synthetic/injected input from triggering
     // the lock screen (Win+L). Locking has to go through this dedicated API.
     [DllImport("user32.dll", SetLastError = true)]

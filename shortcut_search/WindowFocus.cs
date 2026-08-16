@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 namespace shortcut_search;
@@ -16,18 +17,17 @@ internal static class WindowFocus
         if (string.IsNullOrWhiteSpace(exeName))
             return false;
 
-        var target = exeName.Trim('"');
-        if (target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            target = target[..^4];
+        var target = exeName.Trim('"', ' ');
+        target = Path.GetFileNameWithoutExtension(target);
 
         var found = IntPtr.Zero;
 
-        NativeMethods.EnumWindows((hWnd, _) =>
+        NativeMethods.EnumWindows((hWnd, lParam) =>
         {
             if (!NativeMethods.IsWindowVisible(hWnd))
                 return true;
 
-            NativeMethods.GetWindowThreadProcessId(hWnd, out var pid);
+            _ = NativeMethods.GetWindowThreadProcessId(hWnd, out var pid);
             try
             {
                 using var proc = Process.GetProcessById((int)pid);
@@ -46,6 +46,11 @@ internal static class WindowFocus
 
         if (found == IntPtr.Zero)
             return false;
+
+        if (NativeMethods.IsIconic(found))
+        {
+            NativeMethods.ShowWindow(found, 9 /* SW_RESTORE */);
+        }
 
         NativeMethods.SetForegroundWindow(found);
         Thread.Sleep(150);

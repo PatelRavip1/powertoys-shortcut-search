@@ -46,14 +46,22 @@ internal static class ShortcutManifestLoader
     private static readonly string[] ManifestDirs =
     {
         Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\PowerToys\Assets\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\PowerToys\modules\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\PowerToys\ShortcutGuide\Manifests"),
         Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Programs\PowerToys\Assets\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Programs\PowerToys\modules\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Programs\PowerToys\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%ProgramFiles(x86)%\PowerToys\Assets\ShortcutGuide\Manifests"),
+        Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\PowerToys\ShortcutGuide\Manifests"),
         Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\WinGet\KeyboardShortcuts"),
     };
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' may break when trimming.")]
     public static List<ShortcutEntry> LoadAll()
     {
         var results = new List<ShortcutEntry>();
-        var seen = new HashSet<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var deserializer = new DeserializerBuilder().IgnoreUnmatchedProperties().Build();
 
         foreach (var dir in ManifestDirs)
@@ -84,7 +92,7 @@ internal static class ShortcutManifestLoader
                 string appName;
                 if (!string.IsNullOrWhiteSpace(data.Name))
                     appName = data.Name!;
-                else if (packageName.StartsWith("+WindowsNT", StringComparison.OrdinalIgnoreCase))
+                else if (packageName.Contains("WindowsNT", StringComparison.OrdinalIgnoreCase))
                     appName = "Windows";
                 else
                     appName = Path.GetFileNameWithoutExtension(path);
@@ -92,7 +100,7 @@ internal static class ShortcutManifestLoader
                 var windowFilter = data.WindowFilter ?? "";
 
                 ShortcutCategory category;
-                if (packageName.StartsWith("+WindowsNT", StringComparison.OrdinalIgnoreCase))
+                if (packageName.Contains("WindowsNT", StringComparison.OrdinalIgnoreCase))
                     category = ShortcutCategory.Windows;
                 else if (string.Equals(appName, "PowerToys", StringComparison.OrdinalIgnoreCase))
                     category = ShortcutCategory.PowerToys;
@@ -101,17 +109,17 @@ internal static class ShortcutManifestLoader
 
                 foreach (var section in data.Shortcuts)
                 {
-                    foreach (var prop in section.Properties ?? new List<ManifestProperty>())
+                    foreach (var prop in section.Properties ?? [])
                     {
-                        var actionName = prop.Name ?? "";
+                        var actionName = prop.Name ?? string.Empty;
 
-                        foreach (var combo in prop.Shortcut ?? new List<ManifestCombo>())
+                        foreach (var combo in prop.Shortcut ?? [])
                         {
                             var keyDisplays = new List<string>();
                             var vkCodes = new List<ushort>();
                             var ok = true;
 
-                            foreach (var rawKey in combo.Keys ?? new List<string>())
+                            foreach (var rawKey in combo.Keys ?? [])
                             {
                                 var resolved = VirtualKeys.Resolve(rawKey);
                                 if (resolved is null)
@@ -133,7 +141,7 @@ internal static class ShortcutManifestLoader
                             if (combo.Win == true) modParts.Add("Win");
 
                             var display = string.Join("+", modParts.Concat(keyDisplays));
-                            var dedupeKey = $"{appName.ToLowerInvariant()}|{actionName.ToLowerInvariant()}|{display.ToLowerInvariant()}";
+                            var dedupeKey = $"{appName}|{actionName}|{display}";
                             if (!seen.Add(dedupeKey))
                                 continue;
 

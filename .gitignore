@@ -1,0 +1,26 @@
+## Build and output
+[Bb]in/
+[Oo]bj/
+[Aa]pp[Xx]/
+[Pp]ackages/
+_UpgradeReport_Files/
+Backup*/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Rider / VS Code
+.idea/
+.vscode/
+
+## Logs and diagnostics
+*.log
+*.tmp
+
+## Deployment and project configuration
+!**/Properties/launchSettings.json
+!*.pubxml
